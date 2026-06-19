@@ -1,0 +1,4 @@
+interface:
+  display_name: "Toss Securities Open API"
+  short_description: "Operate Toss Securities Open API"
+  default_prompt: "Use $tossinvest-skill to inspect my Toss Securities accounts and market data safely."
