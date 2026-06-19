@@ -1,6 +1,6 @@
-# 토스증권 Open API Codex Skill
+# 토스증권 Open API Agent Skill
 
-토스증권 Open API를 Codex에서 안전하게 사용할 수 있도록 만든 스킬 저장소입니다. 공식 OpenAPI 문서를 참조 자료로 포함하고, 인증·시세·종목·환율·장운영·계좌·보유자산·주문조회·거래가능정보·주문 생성/정정/취소를 다루는 CLI 헬퍼를 제공합니다.
+토스증권 Open API를 Codex, Claude Code 같은 에이전트에서 안전하게 사용할 수 있도록 만든 Agent Skill 저장소입니다. 공식 OpenAPI 문서를 참조 자료로 포함하고, 인증·시세·종목·환율·장운영·계좌·보유자산·주문조회·거래가능정보·주문 생성/정정/취소를 다루는 CLI 헬퍼를 제공합니다.
 
 ## 설치
 
@@ -8,7 +8,13 @@
 npx skills add BEOKS/tossinvest-skill
 ```
 
-설치 후 Codex에서 `$tossinvest-skill`을 호출해 사용할 수 있습니다.
+설치 후 지원되는 에이전트에서 `$tossinvest-skill`을 호출해 사용할 수 있습니다.
+
+Claude Code처럼 특정 에이전트만 지정해서 설치할 수도 있습니다.
+
+```bash
+npx skills add BEOKS/tossinvest-skill --agent claude-code
+```
 
 ## 주요 기능
 
@@ -88,8 +94,8 @@ python3 scripts/tossinvest.py create-order \
 
 ## 저장소 구성
 
-- `SKILL.md`: Codex가 읽는 스킬 진입점
-- `agents/openai.yaml`: 스킬 UI 메타데이터
+- `SKILL.md`: 에이전트가 읽는 스킬 진입점
+- `agents/openai.yaml`: OpenAI/Codex 계열 UI 메타데이터
 - `references/workflows.md`: 엔드포인트 맵과 작업 흐름
 - `references/openapi.json`: 공식 OpenAPI JSON 사본
 - `references/official-overview.md`: 공식 개요 문서 사본
@@ -103,4 +109,4 @@ python3 scripts/tossinvest.py list-endpoints
 python3 scripts/tossinvest.py create-order --account 1 --symbol 005930 --side BUY --order-type LIMIT --quantity 1 --price 70000 --client-order-id dryrun-001
 ```
 
-스킬 메타데이터는 Codex의 `skill-creator` validator로 검증했습니다.
+스킬 메타데이터는 `skill-creator` validator로 검증했습니다.
