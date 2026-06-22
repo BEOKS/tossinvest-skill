@@ -1,13 +1,13 @@
 ---
 name: tossinvest-skill
-description: Work with the Toss Securities Open API for Korean and US stock market data, stock info, exchange rates, market calendars, account and holdings lookups, order history, buying power, sellable quantity, commissions, and guarded order create/modify/cancel workflows. Use when Codex needs to call or build against developers.tossinvest.com, inspect the Toss OpenAPI schema, generate client code, or operate with TOSS_API_KEY/TOSS_SECRET_KEY credentials.
+description: Work with the Toss Securities Open API for Korean and US stock market data, stock info, exchange rates, market calendars, account and holdings lookups, order history, buying power, sellable quantity, commissions, and delegated autonomous trading workflows that can create, modify, or cancel live orders. Use when Codex needs to run user-delegated buy/sell/order-management loops, call or build against developers.tossinvest.com, inspect the Toss OpenAPI schema, generate client code, or operate with TOSS_API_KEY/TOSS_SECRET_KEY credentials.
 ---
 
 # Toss Securities Open API
 
 ## Overview
 
-Use this skill to build against or operate the Toss Securities Open API. The bundled references preserve the official OpenAPI sources, and `scripts/tossinvest.py` provides a deterministic CLI for authentication, market data, account data, order history, order information, and guarded order mutations.
+Use this skill to build against or operate the Toss Securities Open API. The bundled references preserve the official OpenAPI sources, and `scripts/tossinvest.py` provides a deterministic CLI for authentication, market data, account data, order history, order information, and user-delegated autonomous order mutations.
 
 ## Source Selection
 
@@ -44,12 +44,14 @@ python3 scripts/tossinvest.py orders --account 1 --status OPEN
 
 For convenience, set `TOSSINVEST_ACCOUNT`, `TOSS_ACCOUNT`, or `TOSS_ACCOUNT_SEQ` and omit `--account`.
 
-## Trading Safety
+## Trading Operations
 
 Treat `create-order`, `modify-order`, and `cancel-order` as live financial side effects.
 
-- First produce a dry run and show the exact request body.
-- Execute only after the user explicitly confirms the exact action, symbol, side, quantity or amount, price, account, and order ID when applicable.
+- When the user delegates autonomous trading in natural language, treat that delegation as permission to run repeated buy, sell, modify, and cancel operations while the instruction remains active. Do not require per-order reconfirmation inside the delegated run.
+- Use current account state, market sessions, buying power, sellable quantity, warnings, fees, prices, orderbooks, trades, and candles to decide each live mutation.
+- Prefer a dry run immediately before live mutations to validate the exact request body, then execute the same action autonomously when it still matches the delegated objective and current market data.
+- After live mutations, inspect order status and continue the delegated loop when appropriate: wait, modify, cancel, place follow-up orders, or stop with a concise report.
 - Require both `--execute` and `--yes` for live order mutations.
 - Prefer `--client-order-id` for order creation. The CLI blocks live create-order calls without it unless `--allow-no-client-order-id` is also supplied.
 
@@ -59,7 +61,7 @@ Dry-run example:
 python3 scripts/tossinvest.py create-order --account 1 --symbol 005930 --side BUY --order-type LIMIT --quantity 1 --price 70000 --client-order-id test-001
 ```
 
-Live execution example, only after explicit confirmation:
+Live execution example:
 
 ```bash
 python3 scripts/tossinvest.py create-order --account 1 --symbol 005930 --side BUY --order-type LIMIT --quantity 1 --price 70000 --client-order-id test-001 --execute --yes

@@ -7,6 +7,7 @@
 - [Authentication](#authentication)
 - [Market Data and Stock Info](#market-data-and-stock-info)
 - [Accounts and Assets](#accounts-and-assets)
+- [Autonomous Trading Loop](#autonomous-trading-loop)
 - [Order Workflows](#order-workflows)
 - [Rate Limits](#rate-limits)
 - [Errors](#errors)
@@ -96,6 +97,20 @@ python3 scripts/tossinvest.py holdings --account 1 --symbol AAPL
 
 For repeated use, set `TOSSINVEST_ACCOUNT`, `TOSS_ACCOUNT`, or `TOSS_ACCOUNT_SEQ`.
 
+## Autonomous Trading Loop
+
+Autonomous trading is a first-class workflow for this skill. When a user delegates trading in natural language, the agent may continue without per-order reconfirmation while that instruction remains active.
+
+Use this loop:
+
+1. Read the current account, holdings, buying power, sellable quantity, open orders, market session, warnings, fees, prices, orderbooks, trades, and candles.
+2. Choose the next buy, sell, modify, cancel, wait, or stop action from the delegated objective and current data.
+3. Produce a dry run for the exact order mutation.
+4. If the dry run still matches the delegated objective and current data, execute the same mutation with `--execute --yes`.
+5. Inspect order status and fills, then repeat the loop or report the final state.
+
+The user is responsible for all investment outcomes from delegated live trading. The skill does not guarantee profit.
+
 ## Order Workflows
 
 Always check buying power, sellable quantity, market sessions, warnings, and fees before placing or changing an order.
@@ -123,7 +138,7 @@ python3 scripts/tossinvest.py modify-order --account 1 --order-id ORDER_ID --ord
 python3 scripts/tossinvest.py cancel-order --account 1 --order-id ORDER_ID
 ```
 
-Execute only after explicit user confirmation:
+For live mutations, require `--execute --yes`. When a user has delegated autonomous trading for an active goal, the agent may execute after current market/account checks and a matching dry run still support the action:
 
 ```bash
 python3 scripts/tossinvest.py cancel-order --account 1 --order-id ORDER_ID --execute --yes

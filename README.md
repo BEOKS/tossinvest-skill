@@ -1,6 +1,8 @@
+> **투자 책임 고지:** 이 스킬을 활용해 투자 분석, 자동/자율 주문, 매수/매도 실행을 하는 모든 판단과 결과의 책임은 전적으로 사용자 본인에게 있습니다. 이 프로젝트와 에이전트는 수익을 보장하지 않으며, 손실 가능성을 없애지 않습니다.
+
 # 토스증권 Open API Agent Skill
 
-Codex, Claude Code 같은 에이전트에서 토스증권 Open API를 바로 탐색하고 안전하게 호출할 수 있도록 만든 Agent Skill입니다. 공식 OpenAPI 문서, 작업 흐름, 표준 라이브러리 기반 CLI, 주문 dry-run 안전장치를 함께 묶었습니다.
+Codex, Claude Code 같은 에이전트에서 토스증권 Open API를 바로 탐색하고 호출할 수 있도록 만든 Agent Skill입니다. 공식 OpenAPI 문서, 작업 흐름, 표준 라이브러리 기반 CLI, 주문 dry-run, 그리고 사용자가 자연어로 위임한 자율 매수/매도 실행 흐름을 함께 묶었습니다.
 
 ```bash
 npx skills add BEOKS/tossinvest-skill
@@ -10,7 +12,8 @@ npx skills add BEOKS/tossinvest-skill
 
 - 토스증권 Open API의 인증, 시세, 종목, 계좌, 주문 API를 에이전트가 문서와 스키마 기반으로 다룰 수 있습니다.
 - `scripts/tossinvest.py`로 문서 확인에서 끝나지 않고 실제 조회 호출까지 빠르게 검증할 수 있습니다.
-- 주문 생성/정정/취소는 기본 dry-run이며, 실제 실행은 `--execute --yes`가 있어야만 동작합니다.
+- 사용자가 자율거래를 위임하면 에이전트가 계좌, 시세, 호가, 체결, 장 상태를 확인하면서 매수/매도/정정/취소를 반복 수행할 수 있습니다.
+- 주문 생성/정정/취소는 CLI 기본값이 dry-run이며, 실제 실행은 `--execute --yes`가 있어야만 동작합니다.
 
 ## 빠른 데모
 
@@ -51,7 +54,7 @@ python3 scripts/tossinvest.py create-order \
     "quantity": "1",
     "price": "70000"
   },
-  "executeHint": "Re-run with --execute --yes only after explicit user confirmation."
+  "executeHint": "Re-run with --execute --yes after explicit confirmation, or while operating under a user-delegated autonomous trading instruction."
 }
 ```
 
@@ -88,7 +91,8 @@ OpenAI/Codex 계열 UI를 위한 `agents/openai.yaml`도 포함되어 있지만,
 - KRW/USD 환율과 국내/미국 장 운영 캘린더 조회
 - 계좌 목록, 보유 주식, 주문 목록, 주문 상세 조회
 - 매수 가능 금액, 매도 가능 수량, 수수료 조회
-- 주문 생성, 정정, 취소 dry-run 및 명시적 실행
+- 자연어로 위임된 자율 매수/매도 주문 루프
+- 주문 생성, 정정, 취소 dry-run 및 live 실행
 - 공식 OpenAPI JSON 기반 스키마/엔드포인트 탐색
 
 ## 에이전트에게 시킬 수 있는 일
@@ -103,6 +107,14 @@ Use $tossinvest-skill to check my account holdings and explain the response fiel
 
 ```text
 Use $tossinvest-skill to prepare a dry-run order request for Samsung Electronics.
+```
+
+```text
+Use $tossinvest-skill to trade my Toss account autonomously during today's KR market session.
+```
+
+```text
+Use $tossinvest-skill to manage delegated buy and sell orders for short-term profit.
 ```
 
 ## 자격증명
@@ -142,11 +154,13 @@ python3 scripts/tossinvest.py sellable-quantity --account 1 --symbol 005930
 python3 scripts/tossinvest.py orders --account 1 --status OPEN
 ```
 
-## 주문 안전장치
+## 자율 주문 실행
 
 `create-order`, `modify-order`, `cancel-order`는 실제 금융 거래에 영향을 줄 수 있으므로 기본값은 dry-run입니다.
 
-실제 실행은 사용자가 주문 내용과 계좌를 명확히 확인한 뒤에만 아래처럼 `--execute --yes`를 함께 전달해야 합니다.
+사용자가 자연어로 자율거래를 위임하면 에이전트는 현재 계좌, 매수 가능 금액, 매도 가능 수량, 장 운영 상태, 종목 경고, 수수료, 현재가, 호가, 체결, 캔들을 확인하면서 주문 생성, 정정, 취소를 반복 수행할 수 있습니다. 이 모델은 매 주문마다 다시 확인받는 방식이 아니라, 사용자의 위임이 유지되는 동안 에이전트가 live mutation에 `--execute --yes`를 붙여 실행할 수 있는 방식입니다.
+
+직접 CLI로 live 주문을 실행할 때도 아래처럼 `--execute --yes`를 함께 전달해야 합니다.
 
 ```bash
 python3 scripts/tossinvest.py create-order \
@@ -184,4 +198,4 @@ python3 scripts/tossinvest.py create-order --account 1 --symbol 005930 --side BU
 
 ## 주의
 
-이 프로젝트는 투자 조언을 제공하지 않습니다. 계좌 조회와 주문 API는 실제 금융 계정에 영향을 줄 수 있으므로, 라이브 주문 실행 전 계좌, 종목, 방향, 수량, 가격을 반드시 직접 확인하세요.
+이 프로젝트는 수익을 보장하지 않습니다. 계좌 조회와 주문 API는 실제 금융 계정에 영향을 줄 수 있으며, 사용자가 자율거래를 위임하면 에이전트의 live 주문 실행 결과도 사용자 본인의 책임입니다.

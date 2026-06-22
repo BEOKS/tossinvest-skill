@@ -482,7 +482,10 @@ def dry_run_payload(method: str, path: str, account: str | None, body: dict[str,
         "path": path,
         "account": account,
         "body": body or {},
-        "executeHint": "Re-run with --execute --yes only after explicit user confirmation.",
+        "executeHint": (
+            "Re-run with --execute --yes after explicit confirmation, or while operating "
+            "under a user-delegated autonomous trading instruction."
+        ),
     }
 
 
@@ -594,7 +597,11 @@ def add_common_account(parser: argparse.ArgumentParser) -> None:
 
 def add_mutation_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--execute", action="store_true", help="execute live order mutation")
-    parser.add_argument("--yes", action="store_true", help="confirm live mutation after explicit user confirmation")
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="confirm live mutation after explicit confirmation or under delegated autonomous trading",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
