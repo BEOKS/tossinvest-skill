@@ -1,6 +1,6 @@
 ---
 name: tossinvest-skill
-description: Work with the Toss Securities Open API for Korean and US stock market data, stock info, exchange rates, market calendars, account and holdings lookups, order history, buying power, sellable quantity, commissions, and delegated autonomous trading workflows that can create, modify, or cancel live orders. Use when Codex needs to run user-delegated buy/sell/order-management loops, call or build against developers.tossinvest.com, inspect the Toss OpenAPI schema, generate client code, or operate with TOSS_API_KEY/TOSS_SECRET_KEY credentials.
+description: Work with the Toss Securities Open API for Korean and US stock market data, stock info, exchange rates, market calendars, account and holdings lookups, order history, buying power, sellable quantity, commissions, and delegated autonomous trading workflows that can create, modify, or cancel live orders. Use when an agent needs to run user-delegated buy/sell/order-management loops, call or build against developers.tossinvest.com, inspect the Toss OpenAPI schema, generate client code, or operate with TOSS_API_KEY/TOSS_SECRET_KEY credentials.
 ---
 
 # Toss Securities Open API
@@ -71,4 +71,9 @@ python3 scripts/tossinvest.py create-order --account 1 --symbol 005930 --side BU
 
 Expect successful non-auth responses to use a common JSON envelope with `result`. OAuth token responses use the OAuth2 shape. On errors, capture the HTTP status, `X-Request-Id` or `cf-ray`, Toss error code/message/data, and rate limit headers.
 
-For 429 responses, wait for `Retry-After` when present and then retry with jitter. Watch `X-RateLimit-Remaining` and slow down before reaching zero.
+The CLI handles two failure modes automatically:
+
+- 401 with a cached token: reissues the token once and retries. Only one access token is valid per client, so another process issuing a token silently invalidates the cache.
+- 429: retries up to `--max-retries` times (default 2, or `TOSSINVEST_MAX_RETRIES`), waiting for `Retry-After` or `X-RateLimit-Reset` with jitter. Pass `--max-retries 0` to disable.
+
+When calling the API without the CLI, implement the same behavior. `list-endpoints` reports each endpoint's `rateLimitGroup` — pace loops per group and watch `X-RateLimit-Remaining` before it reaches zero.

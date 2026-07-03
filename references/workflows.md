@@ -62,6 +62,8 @@ Important behavior from the official spec:
 - Refresh tokens are not provided.
 - Only one access token is valid per client; reissuing a token invalidates the previous one.
 
+Because reissuance invalidates the previous token, the CLI recovers from a stale cached token automatically: on 401 with a cached token it reissues once and retries. Avoid issuing tokens from multiple processes in parallel.
+
 Prefer `scripts/tossinvest.py` so token caching avoids unnecessary reissuance:
 
 ```bash
@@ -84,6 +86,8 @@ python3 scripts/tossinvest.py market-calendar --country KR --date 2026-06-19
 ```
 
 Use 6 digit numeric symbols for KRX stocks and ticker symbols for US stocks. Multi-symbol endpoints accept comma-separated symbols.
+
+For candle pagination, pass the previous response's `nextBefore` value as `--before` to fetch older candles. `count` is capped at 200 per request.
 
 ## Accounts and Assets
 
@@ -130,6 +134,11 @@ Order creation supports quantity-based orders and US market amount-based orders:
 - `clientOrderId` is an idempotency key valid for 10 minutes. Prefer it for live order creation.
 - `confirmHighValueOrder` is required by the API for high-value orders.
 
+Order modification rules differ by market:
+
+- KR stocks: `quantity` is required and must be a positive integer; missing/zero/negative/decimal returns `400 invalid-request`.
+- US stocks: `quantity` must be omitted; sending it returns `400 us-modify-quantity-not-supported`. Modify price only.
+
 Use dry runs first:
 
 ```bash
@@ -162,6 +171,8 @@ Rate limits are per client and API group. The official overview lists these base
 | `ORDER_INFO` | 6 TPS, 3 TPS during 09:00-09:10 KST |
 
 Check response headers because limits may change: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After`.
+
+The CLI retries 429 responses automatically up to `--max-retries` times (default 2), honoring `Retry-After` or `X-RateLimit-Reset` with jitter. `list-endpoints` includes each endpoint's `rateLimitGroup` for pacing polling loops.
 
 ## Errors
 

@@ -93,7 +93,8 @@ OpenAI/Codex 계열 UI를 위한 `agents/openai.yaml`도 포함되어 있지만,
 - 매수 가능 금액, 매도 가능 수량, 수수료 조회
 - 자연어로 위임된 자율 매수/매도 주문 루프
 - 주문 생성, 정정, 취소 dry-run 및 live 실행
-- 공식 OpenAPI JSON 기반 스키마/엔드포인트 탐색
+- 만료/무효화된 캐시 토큰 자동 재발급, 429 응답 `Retry-After` 기반 자동 재시도
+- 공식 OpenAPI JSON 기반 스키마/엔드포인트 탐색 (rate limit 그룹 포함)
 
 ## 에이전트에게 시킬 수 있는 일
 

@@ -7,6 +7,8 @@ import argparse
 import hashlib
 import json
 import os
+import random
+import re
 import shlex
 import sys
 import time
@@ -35,6 +37,9 @@ RATE_HEADER_NAMES = (
     "retry-after",
 )
 SHELL_ENV_CACHE: dict[str, str] | None = None
+TOKEN_FROM_CACHE = False
+MAX_RETRY_WAIT_SECONDS = 10.0
+RATE_GROUP_RE = re.compile(r"\*\*Rate Limits Group\*\*:\s*`([A-Z_]+)`")
 
 
 class TossApiError(Exception):
@@ -222,25 +227,50 @@ def request_json(
         "User-Agent": "tossinvest-skill/1.0",
     }
     data = None
-    if auth:
-        headers["Authorization"] = f"Bearer {get_access_token(args)}"
     if account is not None:
         headers["X-Tossinvest-Account"] = str(account)
     if body is not None:
         headers["Content-Type"] = "application/json"
         data = json.dumps(body, ensure_ascii=False).encode("utf-8")
 
-    request = Request(url, data=data, headers=headers, method=method.upper())
-    try:
-        with urlopen(request, timeout=args.timeout) as response:
-            response_body = response.read()
-            response_headers = normalized_headers(response.headers)
-            return response.status, response_headers, decode_body(response_body)
-    except HTTPError as exc:
-        response_body = exc.read()
-        raise TossApiError(exc.code, normalized_headers(exc.headers), decode_body(response_body)) from exc
-    except URLError as exc:
-        raise SystemExit(f"Network error: {exc.reason}") from exc
+    force_refresh = False
+    retries_429 = 0
+    while True:
+        request_headers = dict(headers)
+        if auth:
+            request_headers["Authorization"] = f"Bearer {get_access_token(args, force_refresh=force_refresh)}"
+        request = Request(url, data=data, headers=request_headers, method=method.upper())
+        try:
+            with urlopen(request, timeout=args.timeout) as response:
+                response_body = response.read()
+                response_headers = normalized_headers(response.headers)
+                return response.status, response_headers, decode_body(response_body)
+        except HTTPError as exc:
+            response_headers = normalized_headers(exc.headers)
+            response_body = decode_body(exc.read())
+            # A stale cached token happens whenever another process reissues one,
+            # because only one access token is valid per client.
+            if auth and exc.code == 401 and TOKEN_FROM_CACHE and not force_refresh:
+                force_refresh = True
+                continue
+            if exc.code == 429 and retries_429 < max(args.max_retries, 0):
+                retries_429 += 1
+                time.sleep(retry_delay(response_headers, retries_429))
+                continue
+            raise TossApiError(exc.code, response_headers, response_body) from exc
+        except URLError as exc:
+            raise SystemExit(f"Network error: {exc.reason}") from exc
+
+
+def retry_delay(headers: dict[str, str], attempt: int) -> float:
+    for name in ("retry-after", "x-ratelimit-reset"):
+        raw = headers.get(name)
+        if raw:
+            try:
+                return min(max(float(raw), 0.0), MAX_RETRY_WAIT_SECONDS) + random.uniform(0.05, 0.3)
+            except ValueError:
+                continue
+    return min(float(2 ** (attempt - 1)), MAX_RETRY_WAIT_SECONDS) + random.uniform(0.05, 0.3)
 
 
 def normalized_headers(headers: Any) -> dict[str, str]:
@@ -261,16 +291,19 @@ def selected_headers(headers: dict[str, str]) -> dict[str, str]:
     return {name: headers[name] for name in RATE_HEADER_NAMES if name in headers}
 
 
-def get_access_token(args: argparse.Namespace) -> str:
+def get_access_token(args: argparse.Namespace, *, force_refresh: bool = False) -> str:
+    global TOKEN_FROM_CACHE
     client_id = env_first(CLIENT_ID_ENV)
     client_secret = env_first(CLIENT_SECRET_ENV)
     if not client_id or not client_secret:
         raise SystemExit("Missing Toss credentials. Set TOSS_API_KEY and TOSS_SECRET_KEY.")
 
-    if not args.refresh_token and not args.no_token_cache:
+    if not force_refresh and not args.refresh_token and not args.no_token_cache:
         cached = load_token_cache(client_id)
         if cached:
+            TOKEN_FROM_CACHE = True
             return cached
+    TOKEN_FROM_CACHE = False
 
     form = {
         "grant_type": "client_credentials",
@@ -340,6 +373,7 @@ def cmd_list_endpoints(args: argparse.Namespace) -> None:
             tags = operation.get("tags", [])
             if args.tag and args.tag not in tags:
                 continue
+            rate_match = RATE_GROUP_RE.search(operation.get("description") or "")
             endpoints.append(
                 {
                     "method": method.upper(),
@@ -347,6 +381,7 @@ def cmd_list_endpoints(args: argparse.Namespace) -> None:
                     "operationId": operation.get("operationId"),
                     "tags": tags,
                     "summary": operation.get("summary"),
+                    "rateLimitGroup": rate_match.group(1) if rate_match else None,
                 }
             )
     emit(
@@ -610,6 +645,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timeout", type=float, default=float(os.environ.get("TOSSINVEST_TIMEOUT", "30")))
     parser.add_argument("--refresh-token", action="store_true", help="ignore cached token and issue a new one")
     parser.add_argument("--no-token-cache", action="store_true", help="do not read or write token cache")
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=int(os.environ.get("TOSSINVEST_MAX_RETRIES", "2")),
+        help="max automatic retries on HTTP 429, honoring Retry-After (0 disables)",
+    )
     parser.add_argument("--include-headers", action="store_true", help="wrap output with status and selected response headers")
     parser.add_argument("--compact", action="store_true", help="print compact JSON")
     subparsers = parser.add_subparsers(dest="command", required=True)
