@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -31,6 +32,8 @@ TRUE_VALUES = {"1", "true", "yes", "y", "on"}
 RATE_HEADER_NAMES = (
     "x-request-id",
     "cf-ray",
+    "referenceid",
+    "x-amz-cf-id",
     "x-ratelimit-limit",
     "x-ratelimit-remaining",
     "x-ratelimit-reset",
@@ -280,6 +283,9 @@ def normalized_headers(headers: Any) -> dict[str, str]:
 def decode_body(raw: bytes) -> Any:
     if not raw:
         return None
+    # Some gateway responses are gzip-compressed even without negotiation.
+    if raw.startswith(b"\x1f\x8b"):
+        raw = gzip.decompress(raw)
     text = raw.decode("utf-8", errors="replace")
     try:
         return json.loads(text)
@@ -757,7 +763,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--quantity")
     p.add_argument("--order-amount")
     p.add_argument("--price")
-    p.add_argument("--time-in-force", choices=("DAY", "CLS"))
+    p.add_argument("--time-in-force", choices=("DAY", "CLS", "OPG"))
     p.add_argument("--client-order-id")
     p.add_argument("--confirm-high-value-order", action="store_true")
     p.add_argument("--allow-no-client-order-id", action="store_true")

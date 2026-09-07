@@ -21,35 +21,11 @@
 - OpenAPI index: `https://openapi.tossinvest.com/openapi-docs/latest/api-reference/README.md`
 - Canonical OpenAPI JSON: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 
-Use `references/openapi.json` as the source of truth in this repository. It was captured from the official OpenAPI JSON and includes paths, schemas, examples, authentication, and response definitions.
+Use `references/openapi.json` as the bundled REST contract (OpenAPI 1.2.14, retrieved 2026-09-08). Use `references/asyncapi.json` for WebSocket contracts. Both are snapshots of server-owned sources. See `current-api.md` for additions and operational changes; see the refreshed `official-overview.md` for the complete endpoint and rate-limit tables.
 
 ## Endpoint Map
 
-All URIs are relative to `https://openapi.tossinvest.com`.
-
-| Group | Method | Path | Operation | Purpose |
-|---|---:|---|---|---|
-| Auth | POST | `/oauth2/token` | `issueOAuth2Token` | OAuth2 client credentials token |
-| Market Data | GET | `/api/v1/orderbook` | `getOrderbook` | bid/ask orderbook for one symbol |
-| Market Data | GET | `/api/v1/prices` | `getPrices` | current prices for up to 200 symbols |
-| Market Data | GET | `/api/v1/trades` | `getTrades` | recent trades for one symbol |
-| Market Data | GET | `/api/v1/price-limits` | `getPriceLimit` | upper/lower price limits |
-| Market Data | GET | `/api/v1/candles` | `getCandles` | 1 minute or 1 day OHLCV candles |
-| Stock Info | GET | `/api/v1/stocks` | `getStocks` | stock master data |
-| Stock Info | GET | `/api/v1/stocks/{symbol}/warnings` | `getStockWarnings` | buy warnings |
-| Market Info | GET | `/api/v1/exchange-rate` | `getExchangeRate` | KRW/USD exchange rate |
-| Market Info | GET | `/api/v1/market-calendar/KR` | `getKrMarketCalendar` | KR market sessions |
-| Market Info | GET | `/api/v1/market-calendar/US` | `getUsMarketCalendar` | US market sessions |
-| Account | GET | `/api/v1/accounts` | `getAccounts` | account list |
-| Asset | GET | `/api/v1/holdings` | `getHoldings` | holdings and portfolio summary |
-| Order History | GET | `/api/v1/orders` | `getOrders` | open or closed order list |
-| Order | POST | `/api/v1/orders` | `createOrder` | create live order |
-| Order History | GET | `/api/v1/orders/{orderId}` | `getOrder` | order detail |
-| Order | POST | `/api/v1/orders/{orderId}/modify` | `modifyOrder` | modify live order |
-| Order | POST | `/api/v1/orders/{orderId}/cancel` | `cancelOrder` | cancel live order |
-| Order Info | GET | `/api/v1/buying-power` | `getBuyingPower` | cash buying power |
-| Order Info | GET | `/api/v1/sellable-quantity` | `getSellableQuantity` | sellable quantity |
-| Order Info | GET | `/api/v1/commissions` | `getCommissions` | commission rates |
+All REST URIs are relative to `https://openapi.tossinvest.com`. Run `python3 scripts/tossinvest.py list-endpoints` to list every bundled operation, or filter with `--tag`. Dedicated CLI commands cover the original REST endpoints; use `request` for the additional endpoints documented in `current-api.md`.
 
 ## Authentication
 
@@ -130,7 +106,7 @@ Order creation supports quantity-based orders and US market amount-based orders:
 
 - Quantity-based: `symbol`, `side`, `orderType`, and `quantity`; `price` is required for `LIMIT`.
 - Amount-based: US `MARKET` orders with `orderAmount`; use this for fractional amount buys.
-- `timeInForce` defaults to `DAY`; `CLS` is used for supported close orders such as US LOC.
+- `timeInForce` defaults to `DAY`; `CLS` supports US LIMIT close orders, and `OPG` supports KR LIMIT/MARKET opening orders. See `current-api.md` for fractional-order and modification restrictions.
 - `clientOrderId` is an idempotency key valid for 10 minutes. Prefer it for live order creation.
 - `confirmHighValueOrder` is required by the API for high-value orders.
 
@@ -155,24 +131,9 @@ python3 scripts/tossinvest.py cancel-order --account 1 --order-id ORDER_ID --exe
 
 ## Rate Limits
 
-Rate limits are per client and API group. The official overview lists these baseline groups:
+Rate limits are per client and API group. Use the current table in `official-overview.md` and the returned `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After` headers. The CLI retries 429 responses up to `--max-retries` times (default 2), using `Retry-After` or `X-RateLimit-Reset` with jitter. Reconcile uncertain order outcomes before resubmission.
 
-| Group | Limit |
-|---|---:|
-| `AUTH` | 5 TPS |
-| `ACCOUNT` | 1 TPS |
-| `ASSET` | 5 TPS |
-| `STOCK` | 5 TPS |
-| `MARKET_INFO` | 3 TPS |
-| `MARKET_DATA` | 10 TPS |
-| `MARKET_DATA_CHART` | 5 TPS |
-| `ORDER` | 6 TPS, 3 TPS during 09:00-09:10 KST |
-| `ORDER_HISTORY` | 5 TPS |
-| `ORDER_INFO` | 6 TPS, 3 TPS during 09:00-09:10 KST |
-
-Check response headers because limits may change: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After`.
-
-The CLI retries 429 responses automatically up to `--max-retries` times (default 2), honoring `Retry-After` or `X-RateLimit-Reset` with jitter. `list-endpoints` includes each endpoint's `rateLimitGroup` for pacing polling loops.
+`list-endpoints` includes each endpoint's `rateLimitGroup` for pacing polling loops.
 
 ## Errors
 
@@ -191,7 +152,7 @@ Common non-auth errors use this envelope:
 }
 ```
 
-For support or debugging, retain `X-Request-Id`; if missing, retain `cf-ray`. Treat unknown enum values and unknown error codes as possible future additions.
+For support or debugging, retain `X-Request-Id`; if missing, retain `referenceId` or `x-amz-cf-id` (and legacy `cf-ray` when present). Treat unknown enum values and unknown error codes as possible future additions.
 
 ## Client Generation
 

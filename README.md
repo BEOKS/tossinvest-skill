@@ -96,6 +96,8 @@ OpenAI/Codex 계열 UI를 위한 `agents/openai.yaml`도 포함되어 있지만,
 - 만료/무효화된 캐시 토큰 자동 재발급, 429 응답 `Retry-After` 기반 자동 재시도
 - 공식 OpenAPI JSON 기반 스키마/엔드포인트 탐색 (rate limit 그룹 포함)
 
+공식 참조 문서는 2026-09-08 기준 OpenAPI 1.2.14로 갱신했습니다. 추가 REST API(전체 종목, 랭킹, 수급, 시장지표, 조건주문)는 범용 `request` 명령으로 호출합니다. WebSocket은 명세와 연결 지침을 제공하며 CLI 클라이언트는 포함하지 않습니다. 자세한 예시와 최신 주문 제약은 [추가 API 사용법](references/current-api.md)을 참고하세요.
+
 ## 에이전트에게 시킬 수 있는 일
 
 ```text
@@ -184,6 +186,8 @@ python3 scripts/tossinvest.py create-order \
 - `agents/openai.yaml`: OpenAI/Codex 계열 UI 메타데이터
 - `references/workflows.md`: 엔드포인트 맵과 작업 흐름
 - `references/openapi.json`: 공식 OpenAPI JSON 사본
+- `references/asyncapi.json`: 공식 WebSocket AsyncAPI 사본
+- `references/current-api.md`: 추가 REST API, 주문 제약, WebSocket 연결 지침
 - `references/official-overview.md`: 공식 개요 문서 사본
 - `references/api-reference-index.md`: 공식 API reference index 사본
 - `scripts/tossinvest.py`: 표준 라이브러리 기반 CLI 헬퍼
@@ -191,6 +195,7 @@ python3 scripts/tossinvest.py create-order \
 ## 검증
 
 ```bash
+python3 -m unittest discover -s scripts/tests -v
 python3 scripts/tossinvest.py list-endpoints
 python3 scripts/tossinvest.py create-order --account 1 --symbol 005930 --side BUY --order-type LIMIT --quantity 1 --price 70000 --client-order-id dryrun-001
 ```
